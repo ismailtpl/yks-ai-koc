@@ -304,43 +304,10 @@ document.write('<link rel="manifest" href="' + manifestURL + '"/>');
   .ds-sure{font-size:11px;color:var(--muted);margin-top:1px}
   .day-rest{font-size:12px;color:var(--muted);text-align:center;padding:8px}
 
-  /* API KEY OVERLAY */
-  .overlay{position:fixed;inset:0;z-index:999;background:rgba(10,14,26,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-  .overlay-card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 22px}
-  .overlay-icon{font-size:52px;text-align:center;margin-bottom:14px}
-  .overlay-title{font-size:22px;font-weight:800;text-align:center;margin-bottom:6px}
-  .overlay-sub{font-size:13px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:20px}
-  .key-inp{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);font-size:14px;font-family:monospace;margin-bottom:8px}
-  .key-inp:focus{border-color:var(--accent);outline:none}
-  .key-error{font-size:12px;color:var(--red);margin-bottom:8px;display:none;padding:2px}
-  .key-info{background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--muted);line-height:1.6}
-  .key-info a{color:var(--accent);text-decoration:none}
-  .key-settings{position:fixed;top:12px;right:14px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div id="app">
-  <!-- API KEY OVERLAY -->
-  <div class="overlay" id="apiKeyOverlay" style="display:none">
-    <div class="overlay-card">
-      <div class="overlay-icon">🔑</div>
-      <div class="overlay-title">API Anahtarı Gerekli</div>
-      <div class="overlay-sub">Uygulamayı kullanmak için Anthropic API anahtarın gerekiyor. Anahtar yalnızca cihazında saklanır.</div>
-      <div class="key-info">
-        <strong>Nasıl alırım?</strong><br>
-        1. <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> adresine git<br>
-        2. Hesap aç (ücretsiz $5 kredi verilir)<br>
-        3. API Keys bölümünden anahtar oluştur<br>
-        4. "sk-ant-..." ile başlayan anahtarı buraya yapıştır
-      </div>
-      <input class="key-inp" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off" autocorrect="off" spellcheck="false"/>
-      <div class="key-error" id="apiKeyError"></div>
-      <button class="btn-primary" onclick="saveApiKey()" style="margin-top:4px">✅ Kaydet ve Başla</button>
-    </div>
-  </div>
-
-  <!-- Settings button -->
-  <button class="key-settings" id="settingsBtn" onclick="clearApiKey()" style="display:none" title="API Anahtarını Sıfırla">⚙️ Anahtarı Sıfırla</button>
 
 
   <!-- HEADER -->
@@ -586,41 +553,7 @@ let pomoTime = 25 * 60;
 let pomoMode = 'work';
 let pomoTimer = null;
 let deferredPrompt = null;
-let apiKey = '';
 
-// ── API KEY ────────────────────────────────────────────────────────────────
-function loadApiKey() {
-  try { apiKey = localStorage.getItem('yks_apikey') || ''; } catch(e) { apiKey = ''; }
-  if (apiKey) {
-    document.getElementById('apiKeyOverlay').style.display = 'none';
-    document.getElementById('settingsBtn').style.display = 'block';
-  } else {
-    document.getElementById('apiKeyOverlay').style.display = 'flex';
-    document.getElementById('settingsBtn').style.display = 'none';
-  }
-}
-
-function saveApiKey() {
-  const val = document.getElementById('apiKeyInput').value.trim();
-  const errEl = document.getElementById('apiKeyError');
-  if (!val) { errEl.style.display='block'; errEl.textContent='Anahtar boş olamaz.'; return; }
-  if (!val.startsWith('sk-ant-')) { errEl.style.display='block'; errEl.textContent='Geçersiz format. "sk-ant-" ile başlamalı.'; return; }
-  apiKey = val;
-  try { localStorage.setItem('yks_apikey', val); } catch(e) {}
-  document.getElementById('apiKeyOverlay').style.display = 'none';
-  document.getElementById('settingsBtn').style.display = 'block';
-  errEl.style.display = 'none';
-}
-
-function clearApiKey() {
-  if (!confirm('API anahtarını sıfırlamak istediğinize emin misiniz?')) return;
-  apiKey = '';
-  try { localStorage.removeItem('yks_apikey'); } catch(e) {}
-  document.getElementById('apiKeyInput').value = '';
-  document.getElementById('apiKeyError').style.display = 'none';
-  document.getElementById('settingsBtn').style.display = 'none';
-  document.getElementById('apiKeyOverlay').style.display = 'flex';
-}
 
 // ── PWA ────────────────────────────────────────────────────────────────────
 window.addEventListener('beforeinstallprompt', e => {
@@ -698,12 +631,10 @@ function handleFile(input) {
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function callClaude(messages, systemPrompt, maxTokens = 2000) {
-  if (!apiKey) { showApiKeyScreen(); throw new Error('API anahtarı girilmedi.'); }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true'
     },
@@ -716,17 +647,11 @@ async function callClaude(messages, systemPrompt, maxTokens = 2000) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const msg = err?.error?.message || 'HTTP ' + res.status;
-    if (res.status === 401) throw new Error('Geçersiz API anahtarı. Lütfen anahtarı kontrol et.');
-    throw new Error(msg);
+    throw new Error(err?.error?.message || 'HTTP ' + res.status);
   }
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return (data.content || []).map(b => b.text || '').join('');
-}
-
-function showApiKeyScreen() {
-  document.getElementById('apiKeyOverlay').style.display = 'flex';
 }
 
 async function analyzeExamPDF(base64, userInfo) {
@@ -1165,7 +1090,6 @@ updatePomoUI();
 loadLocal();
 renderNotes();
 renderGoals();
-loadApiKey();
 </script>
 </body>
 </html>
